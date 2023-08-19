@@ -7,13 +7,33 @@ use crate::system::stateless::System;
 
 use super::loading::TextureEnum;
 
+pub trait UserState: Default {
+    fn initialize<T: TextureEnum>(s: &mut State<Self, T>);
+}
+
 /// state that is managed by the application
 #[derive(Default)]
-pub struct State<U: Default, T: TextureEnum> {
+pub struct State<U: UserState, T: TextureEnum> {
     pub world: World,
     pub textures: HashMap<T, Texture2D>,
     /// user-defined state
     pub usr: U,
+    pub clear_color: Color,
+}
+
+impl<U: UserState, T: TextureEnum> State<U, T> {
+    pub fn new() -> Self {
+        let textures = T::load();
+        let usr = U::default();
+        let mut s = Self {
+            usr,
+            textures,
+            clear_color: BLACK,
+            world: Default::default(),
+        };
+        U::initialize(&mut s);
+        s
+    }
 }
 
 /// main game loop. runs your game according to your
@@ -22,7 +42,7 @@ pub struct State<U: Default, T: TextureEnum> {
 /// a list of system functions to run in order,
 /// and how many frames to output debug timings. if set to 0,
 /// no debug timings are emitted.
-pub async fn run<U: Default, T: TextureEnum>(
+pub async fn run<U: UserState, T: TextureEnum>(
     mut state: State<U, T>,
     systems: &'static[System<U, T>],
     debug_frame_count: usize,
@@ -39,7 +59,7 @@ pub async fn run<U: Default, T: TextureEnum>(
     }
 
     loop {
-        clear_background(BLACK);
+        clear_background(state.clear_color);
         let delta_time = get_frame_time();
         for (sys_index, (sys_fn, _sys_name)) in systems.iter().enumerate() {
             let start = macroquad::time::get_time();

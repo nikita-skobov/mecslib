@@ -1,4 +1,4 @@
-use crate::data::{world::State, loading::TextureEnum};
+use crate::data::{world::{State, UserState}, loading::TextureEnum};
 
 
 type SystemFn<U, T> = fn(&mut State<U, T>, f32);
@@ -28,10 +28,10 @@ macro_rules! sys {
     };
 }
 
-pub fn do_stuff<U: Default, T: TextureEnum>(s: &mut State<U, T>, _dt: f32) {
+pub fn do_stuff<U: UserState, T: TextureEnum>(_s: &mut State<U, T>, _dt: f32) {
 
 }
 
-pub fn do_stuff2<U: Default, T: TextureEnum>(s: &mut State<U, T>, _dt: f32) {
+pub fn do_stuff2<U: UserState, T: TextureEnum>(_s: &mut State<U, T>, _dt: f32) {
 
 }
