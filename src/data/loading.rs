@@ -43,11 +43,6 @@ macro_rules! create_texture_enum {
     };
 }
 
-create_texture_enum!(MyEnum;
-    test, other
-);
-
-
 pub trait TextureEnum: Eq + PartialEq + Hash {
     fn load() -> HashMap<Self, Texture2D>
         where Self: Sized;
