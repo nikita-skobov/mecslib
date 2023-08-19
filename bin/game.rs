@@ -1,6 +1,6 @@
 use hecs::*;
 use macroquad::prelude::*;
-use mquad_ecs_lib::{system::stateless::{System, draw}, data::{loading::TextureEnum, world::{State, run, UserState}}, create_texture_enum, sys, components::*};
+use mquad_ecs_lib::{system::stateless::{System, draw, update_children_transforms}, data::{loading::TextureEnum, world::{State, run, UserState}}, create_texture_enum, sys, components::*};
 
 
 pub struct MyState {
@@ -20,6 +20,14 @@ impl UserState<Textures> for MyState {
         let transform = Transform::from_scale_angle_position(1.0, 0.0, (0.0, 0.0));
         let draw = Drawable::texture(s, Textures::test);
         let unit = s.world.spawn((transform, draw, Layer1));
+
+        let transform = Transform::from_scale_angle_position(1.0, std::f32::consts::FRAC_PI_4, (10.0, 0.0));
+        let draw = Drawable::texture(s, Textures::other);
+        let parent = Parent {
+            parent: unit,
+            local_transform: transform,
+        };
+        let _other = s.world.spawn((Transform::default(), draw, parent, Layer2));
         s.usr.character = unit;
     }
 }
@@ -33,6 +41,7 @@ create_texture_enum!(Textures; other, test);
 fn get_all_systems() -> &'static [MySystem] {
     &[
         sys!(control_character),
+        sys!(update_children_transforms),
         sys!(draw),
     ]
 }

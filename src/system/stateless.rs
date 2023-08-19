@@ -39,6 +39,30 @@ pub fn do_stuff<U: UserState<T>, T: TextureEnum>(_s: &mut State<U, T>, _dt: f32)
 
 }
 
+/// iterates over all children who have parents
+/// and update the children's absolute transform
+pub fn update_children_transforms<U: UserState<T>, T: TextureEnum>(s: &mut State<U, T>, _dt: f32) {
+    let mut parents = s.world.query::<&Parent>();
+    let parents = parents.view();
+
+    // View of entities that don't have parents, i.e. roots of the transform hierarchy
+    let mut roots = s.world.query::<&Transform>().without::<&Parent>();
+    let roots = roots.view();
+
+    for (_entity, (parent, absolute)) in s.world.query::<(&Parent, &mut Transform)>().iter() {
+        // Walk the hierarchy from this entity to the final entity that doesnt have any parents
+        let mut relative_transform = parent.local_transform;
+        let mut ancestor = parent.parent;
+        while let Some(next) = parents.get(ancestor) {
+            relative_transform.d = next.local_transform.d * relative_transform.d;
+            ancestor = next.parent;
+        }
+        if let Some(ancestor_transform) = roots.get(ancestor) {
+            absolute.d = ancestor_transform.d * relative_transform.d;
+        } // TODO: else log error? how could this happen
+    }
+}
+
 pub fn draw<U: UserState<T>, T: TextureEnum>(s: &mut State<U, T>, dt: f32) {
     draw_layer::<_, _, Layer0>(s, dt);
     draw_layer::<_, _, Layer1>(s, dt);

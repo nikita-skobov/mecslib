@@ -7,6 +7,7 @@ use macroquad::prelude::*;
 
 use crate::data::{world::{State, UserState}, loading::TextureEnum};
 
+#[derive(Clone, Copy, Debug, Default)]
 pub struct Transform {
     pub d: Affine2,
 }
@@ -28,10 +29,6 @@ pub struct Parent {
     /// the local offset this entity has in relation to the parent's offset
     pub local_transform: Transform,
 }
-
-/// unit struct indicating an entity is dirty, which means
-/// it's child transforms need to be re-calculated
-pub struct Dirty;
 
 /// represents anything drawable. currently just limitied to single textures
 /// but can be expanded to include shapes, animations, text, etc.
