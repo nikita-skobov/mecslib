@@ -7,13 +7,13 @@ use crate::system::stateless::System;
 
 use super::loading::TextureEnum;
 
-pub trait UserState: Default {
-    fn initialize<T: TextureEnum>(s: &mut State<Self, T>);
+pub trait UserState<T: TextureEnum>: Default {
+    fn initialize(s: &mut State<Self, T>);
 }
 
 /// state that is managed by the application
 #[derive(Default)]
-pub struct State<U: UserState, T: TextureEnum> {
+pub struct State<U: UserState<T>, T: TextureEnum> {
     pub world: World,
     pub textures: HashMap<T, Texture2D>,
     /// user-defined state
@@ -21,7 +21,7 @@ pub struct State<U: UserState, T: TextureEnum> {
     pub clear_color: Color,
 }
 
-impl<U: UserState, T: TextureEnum> State<U, T> {
+impl<U: UserState<T>, T: TextureEnum> State<U, T> {
     pub fn new() -> Self {
         let textures = T::load();
         let usr = U::default();
@@ -42,7 +42,7 @@ impl<U: UserState, T: TextureEnum> State<U, T> {
 /// a list of system functions to run in order,
 /// and how many frames to output debug timings. if set to 0,
 /// no debug timings are emitted.
-pub async fn run<U: UserState, T: TextureEnum>(
+pub async fn run<U: UserState<T>, T: TextureEnum>(
     mut state: State<U, T>,
     systems: &'static[System<U, T>],
     debug_frame_count: usize,
