@@ -13,6 +13,13 @@ pub struct CoordTransform {
     pub start_pan_y: f32,
 
     pub wasd_pan_by: f32,
+
+    pub pan_keys_left: Vec<KeyCode>,
+    pub pan_keys_right: Vec<KeyCode>,
+    pub pan_keys_up: Vec<KeyCode>,
+    pub pan_keys_down: Vec<KeyCode>,
+    pub pan_mouse: Vec<MouseButton>,
+    pub zoom_scroll_enabled: bool,
 }
 impl Default for CoordTransform {
     fn default() -> Self {
@@ -24,6 +31,12 @@ impl Default for CoordTransform {
             start_pan_y: Default::default(),
             // TODO: make user editable setting (pan sensitivity)
             wasd_pan_by: 10.0,
+            pan_keys_left: vec![KeyCode::Left],
+            pan_keys_right: vec![KeyCode::Right],
+            pan_keys_up: vec![KeyCode::Up],
+            pan_keys_down: vec![KeyCode::Down],
+            pan_mouse: vec![MouseButton::Left],
+            zoom_scroll_enabled: true,
         }
     }
 }

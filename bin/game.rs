@@ -5,7 +5,7 @@ use mquad_ecs_lib::{
     system::stateless::*,
     data::{
         loading::TextureEnum,
-        world::{State, UserState, run, generate_triangle_map},
+        world::{State, UserState, run},
     },
     create_texture_enum,
     sys,

@@ -72,60 +72,72 @@ pub fn update_children_transforms<U: UserState<T>, T: TextureEnum>(s: &mut State
 
 pub fn handle_pan<U: UserState<T>, T: TextureEnum>(s: &mut State<U, T>, _dt: f32) {
     let coords = &mut s.coords;
-    // always allow panning with WASD
-    let mut wasd_panned = false;
-    if is_key_down(KeyCode::W) {
-        wasd_panned = true;
-        coords.pan_y -= coords.wasd_pan_by / coords.scale;
+    // always allow panning with keys
+    let mut key_panned = false;
+    for key in coords.pan_keys_up.iter() {
+        if is_key_down(*key) {
+            key_panned = true;
+            coords.pan_y -= coords.wasd_pan_by / coords.scale;
+        }
     }
-    if is_key_down(KeyCode::A) {
-        wasd_panned = true;
-        coords.pan_x -= coords.wasd_pan_by / coords.scale;
+    for key in coords.pan_keys_left.iter() {
+        if is_key_down(*key) {
+            key_panned = true;
+            coords.pan_x -= coords.wasd_pan_by / coords.scale;
+        }
     }
-    if is_key_down(KeyCode::S) {
-        wasd_panned = true;
-        coords.pan_y += coords.wasd_pan_by / coords.scale;
+    for key in coords.pan_keys_down.iter() {
+        if is_key_down(*key) {
+            key_panned = true;
+            coords.pan_y += coords.wasd_pan_by / coords.scale;
+        }
     }
-    if is_key_down(KeyCode::D) {
-        wasd_panned = true;
-        coords.pan_x += coords.wasd_pan_by / coords.scale;
+    for key in coords.pan_keys_right.iter() {
+        if is_key_down(*key) {
+            key_panned = true;
+            coords.pan_x += coords.wasd_pan_by / coords.scale;
+        }
     }
     let (x, y) = mouse_position();
 
-    // prevent double panning if already panned with wasm
-    let can_pan = !wasd_panned;
+    // prevent double panning if already panned with keys
+    let can_pan = !key_panned;
     // handle pan:
     if can_pan {
-        if is_mouse_button_pressed(MouseButton::Right) {
-            coords.start_pan_x = x;
-            coords.start_pan_y = y;
-        }
-        if is_mouse_button_down(MouseButton::Right) {
-            coords.pan_x -= (x - coords.start_pan_x) / coords.scale;
-            coords.pan_y -= (y - coords.start_pan_y) / coords.scale;
-            coords.start_pan_x = x;
-            coords.start_pan_y = y;
+        for mbutton in coords.pan_mouse.iter() {
+            if is_mouse_button_pressed(*mbutton) {
+                coords.start_pan_x = x;
+                coords.start_pan_y = y;
+            }
+            if is_mouse_button_down(*mbutton) {
+                coords.pan_x -= (x - coords.start_pan_x) / coords.scale;
+                coords.pan_y -= (y - coords.start_pan_y) / coords.scale;
+                coords.start_pan_x = x;
+                coords.start_pan_y = y;
+            }
         }
     }
 
-    // handle zoom:
-    let (wx_before, wy_before) = coords.to_world(x, y);
-    let (_, scrolly) = mouse_wheel();
-    if scrolly > 0.0 {
-        coords.scale *= 1.0 + CoordTransform::SCALE_BY;
+    if coords.zoom_scroll_enabled {
+        // handle zoom:
+        let (wx_before, wy_before) = coords.to_world(x, y);
+        let (_, scrolly) = mouse_wheel();
+        if scrolly > 0.0 {
+            coords.scale *= 1.0 + CoordTransform::SCALE_BY;
+        }
+        if scrolly < 0.0 {
+            coords.scale *= 1.0 - CoordTransform::SCALE_BY;
+        }
+        if coords.scale < CoordTransform::MIN_SCALE {
+            coords.scale = CoordTransform::MIN_SCALE;
+        }
+        if coords.scale > CoordTransform::MAX_SCALE {
+            coords.scale = CoordTransform::MAX_SCALE;
+        }
+        let (wx_after, wy_after) = coords.to_world(x, y);
+        coords.pan_x += wx_before - wx_after;
+        coords.pan_y += wy_before - wy_after;
     }
-    if scrolly < 0.0 {
-        coords.scale *= 1.0 - CoordTransform::SCALE_BY;
-    }
-    if coords.scale < CoordTransform::MIN_SCALE {
-        coords.scale = CoordTransform::MIN_SCALE;
-    }
-    if coords.scale > CoordTransform::MAX_SCALE {
-        coords.scale = CoordTransform::MAX_SCALE;
-    }
-    let (wx_after, wy_after) = coords.to_world(x, y);
-    coords.pan_x += wx_before - wx_after;
-    coords.pan_y += wy_before - wy_after;
 }
 
 /// draw requires entities with the following components:
@@ -149,7 +161,8 @@ pub fn draw_layer<U: UserState<T>, T: TextureEnum, Layer: Component>(s: &mut Sta
     for (_, (transform, drawable)) in s.world.query_mut::<(&Transform, &Drawable)>().with::<&Layer>() {
         let pt = transform.d.transform_point2(Vec2::ZERO);
         let dir_vec = transform.d.transform_vector2(Vec2::NEG_Y);
-        let dir_vec_magnitude = dir_vec.length();
+        let dir_vec_magnitude = dir_vec.length() * s.coords.scale;
+        let pt: Vec2 = s.coords.to_screen(pt.x, pt.y).into();
         
         match drawable {
             Drawable::Texture { d } => {
