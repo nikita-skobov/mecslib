@@ -11,26 +11,35 @@ use mquad_ecs_lib::{
     sys,
 };
 
+pub struct BuildingMapTile;
+
+#[derive(Default)]
+pub struct FilledMap {
+    pub data: Vec<Vec<Color>>,
+}
+
 
 pub struct MyState {
     pub character: Entity,
     pub rand_map: RandomMapGen,
     pub rng: fastrand::Rng,
+    pub filled: FilledMap,
 }
 
 impl Default for MyState {
     fn default() -> Self {
         Self {
-            rng: fastrand::Rng::with_seed(412),
+            rng: fastrand::Rng::with_seed(701),
             character: Entity::DANGLING,
             rand_map: Default::default(),
+            filled: Default::default(),
         }
     }
 }
 
 impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
-        s.usr.rand_map = RandomMapGen::new(500, 3000, s.usr.rng.u64(0..u64::MAX));
+        s.usr.rand_map = RandomMapGen::new(1000, 40000, s.usr.rng.u64(0..u64::MAX));
 
         let transform = Transform::from_scale_angle_position(1.0, 0.0, (0.0, 0.0));
         let draw = Drawable::texture(s, Textures::test);
@@ -73,8 +82,34 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
     let d_size = d.width();
     let scale = tile_size / d_size;
     let delta = screen_center - center;
-    let water_level = 0.45;
+    let water_level = 0.30;
+    if next.is_empty() && !s.usr.filled.data.is_empty() {
+        let mut data = std::mem::take(&mut s.usr.filled.data);
+        let size = s.usr.rand_map.square_size as u16;
+        let mut bytes = vec![];
+        for row in data.drain(..) {
+            for val in row {
+                let ext: [u8; 4] = val.into();
+                bytes.extend(ext);
+            }
+        }
+        let new_t = Texture2D::from_rgba8(size, size, &bytes);
+        new_t.set_filter(FilterMode::Nearest);
+        let transform = Transform::from_scale_angle_position(1.0, 0.0, screen_center);
+        s.world.spawn((transform, Layer8, Drawable::Texture { d: new_t }));
+
+        let mut cb = CommandBuffer::new();
+        for (entity, _) in s.world.query_mut::<&BuildingMapTile>() {
+            cb.despawn(entity);
+        }
+        cb.run_on(&mut s.world);
+    }
     for (x, y, height) in next {
+        let y_index = y as usize;
+        if s.usr.filled.data.len() == y_index {
+            s.usr.filled.data.push(vec![]);
+        }
+        let row = &mut s.usr.filled.data[y_index];
         let height = height.clamp(-0.5, 0.5);
         let height = height + 0.5;
         let x = x as f32;
@@ -88,8 +123,9 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         } else {
             GREEN
         };
+        row.push(color);
         let tint = Tint { d: color };
-        s.world.spawn((transform, Layer0, tint, Drawable::Texture { d }));
+        s.world.spawn((transform, Layer0, tint, Drawable::Texture { d }, BuildingMapTile));
     }
 }
 
