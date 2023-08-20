@@ -95,7 +95,8 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         }
         let new_t = Texture2D::from_rgba8(size, size, &bytes);
         new_t.set_filter(FilterMode::Nearest);
-        let transform = Transform::from_scale_angle_position(1.0, 0.0, screen_center);
+        let scale = final_size / new_t.width();
+        let transform = Transform::from_scale_angle_position(scale, 0.0, screen_center);
         s.world.spawn((transform, Layer8, Drawable::Texture { d: new_t }));
 
         let mut cb = CommandBuffer::new();
