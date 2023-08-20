@@ -63,6 +63,68 @@ pub fn update_children_transforms<U: UserState<T>, T: TextureEnum>(s: &mut State
     }
 }
 
+pub fn handle_pan<U: UserState<T>, T: TextureEnum>(s: &mut State<U, T>, _dt: f32) {
+    let coords = &mut s.coords;
+    // always allow panning with WASD
+    let mut wasd_panned = false;
+    if is_key_down(KeyCode::W) {
+        wasd_panned = true;
+        coords.pan_y -= coords.wasd_pan_by / coords.scale;
+    }
+    if is_key_down(KeyCode::A) {
+        wasd_panned = true;
+        coords.pan_x -= coords.wasd_pan_by / coords.scale;
+    }
+    if is_key_down(KeyCode::S) {
+        wasd_panned = true;
+        coords.pan_y += coords.wasd_pan_by / coords.scale;
+    }
+    if is_key_down(KeyCode::D) {
+        wasd_panned = true;
+        coords.pan_x += coords.wasd_pan_by / coords.scale;
+    }
+    let (x, y) = mouse_position();
+
+    // prevent double panning if already panned with wasm
+    let can_pan = !wasd_panned;
+    // handle pan:
+    if can_pan {
+        if is_mouse_button_pressed(MouseButton::Right) {
+            coords.start_pan_x = x;
+            coords.start_pan_y = y;
+        }
+        if is_mouse_button_down(MouseButton::Right) {
+            coords.pan_x -= (x - coords.start_pan_x) / coords.scale;
+            coords.pan_y -= (y - coords.start_pan_y) / coords.scale;
+            coords.start_pan_x = x;
+            coords.start_pan_y = y;
+        }
+    }
+
+    // handle zoom:
+    let (wx_before, wy_before) = coords.to_world(x, y);
+    let (_, scrolly) = mouse_wheel();
+    if scrolly > 0.0 {
+        coords.scale *= 1.0 + CoordTransform::SCALE_BY;
+    }
+    if scrolly < 0.0 {
+        coords.scale *= 1.0 - CoordTransform::SCALE_BY;
+    }
+    if coords.scale < CoordTransform::MIN_SCALE {
+        coords.scale = CoordTransform::MIN_SCALE;
+    }
+    if coords.scale > CoordTransform::MAX_SCALE {
+        coords.scale = CoordTransform::MAX_SCALE;
+    }
+    let (wx_after, wy_after) = coords.to_world(x, y);
+    coords.pan_x += wx_before - wx_after;
+    coords.pan_y += wy_before - wy_after;
+}
+
+/// draw requires entities with the following components:
+/// - transform
+/// - drawable
+/// - layer (0 - 9)
 pub fn draw<U: UserState<T>, T: TextureEnum>(s: &mut State<U, T>, dt: f32) {
     draw_layer::<_, _, Layer0>(s, dt);
     draw_layer::<_, _, Layer1>(s, dt);

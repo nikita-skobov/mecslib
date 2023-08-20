@@ -19,6 +19,7 @@ pub struct State<U: UserState<T>, T: TextureEnum> {
     /// user-defined state
     pub usr: U,
     pub clear_color: Color,
+    pub coords: CoordTransform,
 }
 
 impl<U: UserState<T>, T: TextureEnum> State<U, T> {
@@ -29,6 +30,7 @@ impl<U: UserState<T>, T: TextureEnum> State<U, T> {
             usr,
             textures,
             clear_color: BLACK,
+            coords: Default::default(),
             world: Default::default(),
         };
         U::initialize(&mut s);
