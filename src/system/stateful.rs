@@ -2,6 +2,7 @@
 //! in the UserState or GameState struct. These systems are useful to represent
 //! singletons within the game world, such as but not limited to: maps, player characters, coordinate transforms, etc.
 
+use bracket_noise::prelude::*;
 use macroquad::prelude::*;
 
 pub struct CoordTransform {
@@ -70,5 +71,79 @@ impl CoordTransform {
         // Update the internal state with the new pan values
         self.pan_x = new_pan_x;
         self.pan_y = new_pan_y;
+    }
+}
+
+pub struct RandomMapGen {
+    pub square_size: usize,
+    pub noise: FastNoise,
+    pub remaining: Vec<(i32, i32)>,
+    pub fill_speed: usize,
+}
+impl Default for RandomMapGen {
+    fn default() -> Self {
+        Self {
+            square_size: 0,
+            fill_speed: 0,
+            noise: FastNoise::new(),
+            remaining: Default::default(),
+        }
+    }
+}
+
+impl RandomMapGen {
+    pub fn new(square_size: usize, fill_speed: usize, seed: u64) -> Self {
+        let mut noise = FastNoise::seeded(seed);
+        noise.set_noise_type(NoiseType::PerlinFractal);
+        noise.set_fractal_type(FractalType::FBM);
+        noise.set_fractal_octaves(5);
+        noise.set_fractal_gain(0.6);
+        noise.set_fractal_lacunarity(2.0);
+        noise.set_frequency(1.0);
+        let mut remaining = Vec::with_capacity(square_size * square_size);
+        for y in 0..square_size {
+            for x in 0..square_size {
+                remaining.push((x as _, y as _));
+            }
+        }
+        Self {
+            fill_speed,
+            square_size,
+            noise,
+            remaining,
+        }
+    }
+    pub fn set_noise(&mut self, mut cb: impl FnMut(&mut FastNoise)) {
+        cb(&mut self.noise);
+    }
+    /// like get_next_n, but uses internal fill_speed as N.
+    pub fn get_next(&mut self) -> Vec<(i32, i32, f32)> {
+        self.get_next_n(self.fill_speed)
+    }
+    /// returns the next N tiles from the remaining list.
+    /// if N is greater than the size of remaining list, returns everything left.
+    pub fn get_next_n(&mut self, n: usize) -> Vec<(i32, i32 ,f32)> {
+        let n = if n > self.remaining.len() {
+            self.remaining.len()
+        } else { n };
+        let ratio_by = self.square_size as f32 * self.noise.get_frequency();
+        let mut next = Vec::with_capacity(n);
+        let mut arr = self.remaining.split_off(n);
+        std::mem::swap(&mut arr, &mut self.remaining);
+        for index in arr {
+            let (x, y) = (
+                index.0 as f32 / ratio_by,
+                index.1 as f32 / ratio_by,
+            );
+            let height = self.noise.get_noise(x, y);
+            next.push((index.0, index.1, height));
+        }
+        next
+    }
+    /// returns a vec of each tile with its coordinates, and the height of that tile.
+    /// this uses up all of the remaining coordinates, so don't use if you've already called
+    /// get_next_n
+    pub fn finish(&mut self) -> Vec<(i32, i32, f32)> {
+        self.get_next_n(self.remaining.len())
     }
 }

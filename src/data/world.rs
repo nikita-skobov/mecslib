@@ -1,11 +1,10 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use hecs::*;
 use macroquad::prelude::*;
 
 use crate::{
     data::loading::*,
-    components::*,
     system::{
         stateless::*,
         stateful::*
