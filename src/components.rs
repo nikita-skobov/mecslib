@@ -10,6 +10,9 @@ use crate::data::{
     loading::*,
 };
 
+pub struct Tint {
+    pub d: Color,
+}
 
 pub struct Triangle {
     pub a: Vec2,
