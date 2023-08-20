@@ -5,7 +5,14 @@
 use hecs::*;
 use macroquad::prelude::*;
 
-use crate::{data::{world::{State, UserState}, loading::TextureEnum}, components::*};
+use crate::{
+    components::*,
+    system::stateful::*,
+    data::{
+        world::*,
+        loading::*
+    },
+};
 
 
 type SystemFn<U, T> = fn(&mut State<U, T>, f32);

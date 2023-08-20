@@ -5,7 +5,27 @@
 use hecs::*;
 use macroquad::prelude::*;
 
-use crate::data::{world::{State, UserState}, loading::TextureEnum};
+use crate::data::{
+    world::*,
+    loading::*,
+};
+
+
+pub struct Triangle {
+    pub a: Vec2,
+    pub b: Vec2,
+    pub c: Vec2,
+}
+impl Triangle {
+    pub fn center(&self) -> Vec2 {
+        (self.a + self.b + self.c) / 3.0
+    }
+}
+
+pub struct LineSegment {
+    pub a: Vec2,
+    pub b: Vec2,
+}
 
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Transform {

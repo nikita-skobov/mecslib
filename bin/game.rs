@@ -1,6 +1,15 @@
 use hecs::*;
 use macroquad::prelude::*;
-use mquad_ecs_lib::{system::stateless::{System, draw, update_children_transforms}, data::{loading::TextureEnum, world::{State, run, UserState}}, create_texture_enum, sys, components::*};
+use mquad_ecs_lib::{
+    components::*,
+    system::stateless::*,
+    data::{
+        loading::TextureEnum,
+        world::{State, UserState, run, generate_triangle_map},
+    },
+    create_texture_enum,
+    sys,
+};
 
 
 pub struct MyState {
@@ -40,6 +49,7 @@ create_texture_enum!(Textures; other, test);
 
 fn get_all_systems() -> &'static [MySystem] {
     &[
+        sys!(handle_pan),
         sys!(control_character),
         sys!(update_children_transforms),
         sys!(draw),

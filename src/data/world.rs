@@ -1,11 +1,16 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use hecs::*;
 use macroquad::prelude::*;
 
-use crate::system::stateless::System;
-
-use super::loading::TextureEnum;
+use crate::{
+    data::loading::*,
+    components::*,
+    system::{
+        stateless::*,
+        stateful::*
+    },
+};
 
 pub trait UserState<T: TextureEnum>: Default {
     fn initialize(s: &mut State<Self, T>);
