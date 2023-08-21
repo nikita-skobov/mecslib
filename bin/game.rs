@@ -29,7 +29,7 @@ pub struct MyState {
 impl Default for MyState {
     fn default() -> Self {
         Self {
-            rng: fastrand::Rng::with_seed(701),
+            rng: fastrand::Rng::with_seed(12433),
             character: Entity::DANGLING,
             rand_map: Default::default(),
             filled: Default::default(),
@@ -75,14 +75,16 @@ fn get_all_systems() -> &'static [MySystem] {
 fn fill_generated_map(s: &mut GameState, _dt: f32) {
     let next = s.usr.rand_map.get_next();
     let final_size = screen_height() * 0.9;
+    let half_size = s.usr.rand_map.square_size as f32 / 2.0;
     let center = Vec2::new(final_size / 2.0, final_size / 2.0);
+    let original_center = Vec2::new(half_size, half_size);
     let screen_center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
     let tile_size = final_size / s.usr.rand_map.square_size as f32;
     let d = s.textures[&Textures::empty];
     let d_size = d.width();
     let scale = tile_size / d_size;
     let delta = screen_center - center;
-    let water_level = 0.30;
+    let water_level = 0.20;
     if next.is_empty() && !s.usr.filled.data.is_empty() {
         let mut data = std::mem::take(&mut s.usr.filled.data);
         let size = s.usr.rand_map.square_size as u16;
@@ -115,6 +117,10 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         let height = height + 0.5;
         let x = x as f32;
         let y = y as f32;
+        let pt: Vec2 = (x, y).into();
+        let dist = pt.distance(original_center);
+        let water_mult = 1.0 - (1.4 * dist / s.usr.rand_map.square_size as f32).clamp(0.0, 1.0);
+        let height = height * water_mult;
         let x = x * tile_size;
         let y = y * tile_size;
         let pt = Vec2::new(x, y);
