@@ -24,15 +24,17 @@ pub struct MyState {
     pub rand_map: RandomMapGen,
     pub rng: fastrand::Rng,
     pub filled: FilledMap,
+    pub recursive_tiling: RecursiveTiling,
 }
 
 impl Default for MyState {
     fn default() -> Self {
         Self {
-            rng: fastrand::Rng::with_seed(12433),
+            rng: fastrand::Rng::with_seed(7),
             character: Entity::DANGLING,
             rand_map: Default::default(),
             filled: Default::default(),
+            recursive_tiling: Default::default(),
         }
     }
 }
@@ -40,6 +42,8 @@ impl Default for MyState {
 impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
         s.usr.rand_map = RandomMapGen::new(1000, 40000, s.usr.rng.u64(0..u64::MAX));
+        s.usr.recursive_tiling.size = s.usr.rand_map.square_size as i32;
+        s.usr.recursive_tiling.desired_tile_size = 1000;
 
         let transform = Transform::from_scale_angle_position(1.0, 0.0, (0.0, 0.0));
         let draw = Drawable::texture(s, Textures::test);
@@ -67,9 +71,61 @@ fn get_all_systems() -> &'static [MySystem] {
         sys!(handle_pan),
         sys!(control_character),
         sys!(update_children_transforms),
+        sys!(generate_tiles),
         sys!(fill_generated_map),
         sys!(draw),
     ]
+}
+
+fn generate_tiles(s: &mut GameState, _dt: f32) {
+    let tiling = &mut s.usr.recursive_tiling;
+    if !tiling.ready_to_tile {
+        return;
+    }
+    if tiling.should_reset() {
+        let mut cb = CommandBuffer::new();
+        for (entity, _) in s.world.query_mut::<&BuildingMapTile>() {
+            cb.despawn(entity);
+        }
+        cb.run_on(&mut s.world);
+    }
+
+    let (_, next_a, next_b) = tiling.next_n(&mut s.usr.rng, 14000);
+    // let mut pinkish = PINK;
+    // let mut orangish = ORANGE;
+    // orangish.a = 0.25;
+    // pinkish.a = 0.25;
+    let pinkish = BLACK;
+    let orangish = WHITE;
+    color_tiles(s, next_a, orangish);
+    color_tiles(s, next_b, pinkish);
+
+}
+
+fn color_tiles(
+    s: &mut GameState,
+    tiles: Vec<(i32, i32)>,
+    color: Color
+) {
+    let d = s.textures[&Textures::empty];
+    let d_size = d.width();
+    let final_size = screen_height() * 0.9;
+    let tile_size = final_size / s.usr.rand_map.square_size as f32;
+    let scale = tile_size / d_size;
+    let center = Vec2::new(final_size / 2.0, final_size / 2.0);
+    let screen_center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
+    let delta = screen_center - center;
+
+    for (x, y) in tiles {
+        let x = x as f32;
+        let y = y as f32;
+        let x = x * tile_size;
+        let y = y * tile_size;
+        let pt = Vec2::new(x, y);
+        let transform = Transform::from_scale_angle_position(scale, 0.0, pt + delta);
+        let tint = Tint { d: color };
+        s.world.spawn((transform, Layer9, Drawable::Texture { d }, tint, BuildingMapTile));
+    }
 }
 
 fn fill_generated_map(s: &mut GameState, _dt: f32) {
@@ -105,6 +161,7 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         for (entity, _) in s.world.query_mut::<&BuildingMapTile>() {
             cb.despawn(entity);
         }
+        s.usr.recursive_tiling.ready_to_tile = true;
         cb.run_on(&mut s.world);
     }
     for (x, y, height) in next {
@@ -115,6 +172,7 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         let row = &mut s.usr.filled.data[y_index];
         let height = height.clamp(-0.5, 0.5);
         let height = height + 0.5;
+        let original_xy = (x, y);
         let x = x as f32;
         let y = y as f32;
         let pt: Vec2 = (x, y).into();
@@ -128,6 +186,7 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         let color = if height < water_level {
             BLUE
         } else {
+            s.usr.recursive_tiling.open_set.insert(original_xy);
             GREEN
         };
         row.push(color);
