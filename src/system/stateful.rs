@@ -389,6 +389,7 @@ impl RecursiveTiling {
 #[derive(Default)]
 pub struct VoronoiTiling {
     pub desired_points: usize,
+    pub original_open_set_size: usize,
     pub open_set: HashSet<(i32, i32)>,
     pub open_set_list: Vec<(i32, i32)>,
     pub growth_starts: Vec<(i32, i32)>,
@@ -400,6 +401,32 @@ pub struct VoronoiTiling {
     pub done: bool,
 }
 impl VoronoiTiling {
+    /// resets all fields except the open set.
+    /// re-calculates desired_points to be scaled down
+    /// depending on how much is remaining.
+    /// do not call if open set is empty
+    pub fn continue_with_open_set(&mut self) {
+        if self.open_set.is_empty() {
+            // you shouldnt be calling this if open_set is empty, so exit early :shrug:
+            return;
+        }
+        self.done = false;
+        self.current_radius = 0.0;
+        self.growth_frontier_sets.clear();
+        self.growth_frontiers.clear();
+        self.growth_sets.clear();
+        self.growth_starts.clear();
+        self.open_set_list.clear();
+        for pt in self.open_set.iter() {
+            self.open_set_list.push(*pt);
+        }
+
+        let original_ratio = self.desired_points as f32 / self.original_open_set_size as f32;
+        self.desired_points = (self.open_set.len() as f32 * original_ratio) as usize;
+        // we must ensure desired points is >= 1
+        // but also less than the size of the open set list
+        self.desired_points = self.desired_points.clamp(1, self.open_set.len());
+    }
     /// calls next N times. returns a vec that contains the output of all N calls.
     pub fn next_n(&mut self, rng: &mut fastrand::Rng, n: usize) -> Vec<Vec<(i32, i32)>> {
         let mut next_data = vec![];
@@ -425,6 +452,7 @@ impl VoronoiTiling {
         if self.growth_starts.is_empty() {
             // invalid state: cant start the algorithm if theres not enough data
             if self.open_set_list.len() < self.desired_points { return out; }
+            self.original_open_set_size = self.open_set.len();
             let mut random_pts = Vec::with_capacity(self.desired_points);
             for _ in 0..self.desired_points {
                 let random_i = rng.usize(0..self.open_set_list.len());
