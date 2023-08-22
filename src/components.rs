@@ -56,12 +56,12 @@ pub struct Parent {
 /// represents anything drawable. currently just limitied to single textures
 /// but can be expanded to include shapes, animations, text, etc.
 pub enum Drawable {
-    Texture { d: Texture2D },
+    Texture { d: Texture2D, dont_center: bool },
 }
 impl Drawable {
     pub fn texture<U: UserState<T>, T: TextureEnum>(s: &State<U, T>, t: T) -> Self {
         let d = s.textures[&t];
-        Self::Texture { d }
+        Self::Texture { d, dont_center: false }
     }
 }
 

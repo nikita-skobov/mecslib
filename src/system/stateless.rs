@@ -165,13 +165,18 @@ pub fn draw_layer<U: UserState<T>, T: TextureEnum, Layer: Component>(s: &mut Sta
         let pt: Vec2 = s.coords.to_screen(pt.x, pt.y).into();
         
         match drawable {
-            Drawable::Texture { d } => {
+            Drawable::Texture { d, dont_center } => {
                 let width = d.width() * dir_vec_magnitude;
                 let height = d.height() * dir_vec_magnitude;
                 let color = if let Some(tint) = tint {
                     tint.d
                 } else { WHITE };
-                draw_texture_ex(*d, pt.x - width / 2.0, pt.y - height / 2.0, color, DrawTextureParams {
+                let (x, y) = if *dont_center {
+                    (pt.x, pt.y)
+                } else {
+                    (pt.x - width / 2.0, pt.y - height / 2.0)
+                };
+                draw_texture_ex(*d, x, y, color, DrawTextureParams {
                     rotation: -dir_vec.angle_between(Vec2::NEG_Y),
                     dest_size: Vec2::new(width, height).into(),
                     ..Default::default()
