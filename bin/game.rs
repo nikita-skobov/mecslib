@@ -26,7 +26,6 @@ pub struct MyState {
     pub rand_map: RandomMapGen,
     pub rng: fastrand::Rng,
     pub filled: FilledMap,
-    pub recursive_tiling: RecursiveTiling,
     pub voronoi_tiling: VoronoiTiling,
     pub created_tile_map: bool,
     pub voronoi_colors: Vec<Color>,
@@ -39,7 +38,6 @@ impl Default for MyState {
             character: Entity::DANGLING,
             rand_map: Default::default(),
             filled: Default::default(),
-            recursive_tiling: Default::default(),
             created_tile_map: Default::default(),
             voronoi_tiling: Default::default(),
             voronoi_colors: Default::default(),
@@ -80,7 +78,6 @@ fn get_all_systems() -> &'static [MySystem] {
         sys!(handle_pan),
         sys!(control_character),
         sys!(update_children_transforms),
-        // sys!(generate_tiles_recursive),
         sys!(generate_tiles_voronoi),
         sys!(fill_generated_map),
         sys!(draw),
@@ -196,93 +193,6 @@ fn generate_texture_from_tileset(
     let position = pt + delta;
     let transform = Transform::from_scale_angle_position(scale, 0.0, position);
     (transform, Drawable::Texture { d: new_t, dont_center: true })
-}
-
-fn generate_tiles_recursive(s: &mut GameState, _dt: f32) {
-    let tiling = &mut s.usr.recursive_tiling;
-    if tiling.should_reset() {
-        let mut cb = CommandBuffer::new();
-        for (entity, _) in s.world.query_mut::<&BuildingMapTile>() {
-            cb.despawn(entity);
-        }
-        cb.run_on(&mut s.world);
-    }
-    if !tiling.ready_to_tile || s.usr.created_tile_map {
-        return;
-    }
-
-    let (_, next_a, next_b) = tiling.next_n(&mut s.usr.rng, 14000);
-    if tiling.all_done {
-        macroquad::logging::warn!("ALL DONE???? {} sets!", tiling.past_sets.len());
-        let final_size = screen_height() * 0.9;
-        let tile_size = final_size / s.usr.rand_map.square_size as f32;
-        let center = Vec2::new(final_size / 2.0, final_size / 2.0);
-        let screen_center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
-        let delta = screen_center - center;
-        for set in tiling.past_sets.drain(..) {
-            let mut min_x = i32::MAX;
-            let mut max_x = i32::MIN;
-            let mut min_y = i32::MAX;
-            let mut max_y = i32::MIN;
-            for (x, y) in set.iter() {
-                let (x, y) = (*x, *y);
-                if x < min_x {
-                    min_x = x;
-                }
-                if x > max_x {
-                    max_x = x;
-                }
-                if y < min_y {
-                    min_y = y;
-                }
-                if y > max_y {
-                    max_y = y;
-                }
-            }
-            let width = max_x - min_x + 1;
-            let height = max_y - min_y + 1;
-            let original_origin = Vec2::new(min_x as f32, min_y as f32);
-            let original_corner = original_origin + Vec2::new(width as f32, height as f32);
-            let original_dist = original_corner.distance(original_origin);
-            let scaled_origin = original_origin * tile_size;
-            let scaled_corner = original_corner * tile_size;
-            let scaled_dist = scaled_corner.distance(scaled_origin);
-            macroquad::logging::warn!("Scaled dist {}, original dist {}. tile size {}", scaled_dist, original_dist, tile_size);
-            let scale = scaled_dist / original_dist;
-
-            // let original_diagonal_length = 
-            let rand_h = s.usr.rng.f32();
-            let rand_color = macroquad::color::hsl_to_rgb(rand_h, 1.0, 0.5);
-            let mut bytes = vec![];
-            for y in min_y..=max_y {
-                for x in min_x..=max_x {
-                    let color = match set.get(&(x, y)) {
-                        Some(_) => rand_color,
-                        None => {
-                            BLANK
-                        },
-                    };
-                    let color_arr: [u8; 4] = color.into();
-                    bytes.extend(color_arr);
-                }
-            }
-            let start_pt = Vec2::new(min_x as f32, min_y as f32);
-            let pt = start_pt * tile_size;
-            let width = width as u16;
-            let height = height as u16;
-            let new_t = Texture2D::from_rgba8(width, height, &bytes);
-            new_t.set_filter(FilterMode::Nearest);
-            let position = pt + delta;
-            let transform = Transform::from_scale_angle_position(scale, 0.0, position);
-            macroquad::logging::warn!("Creating texture @{},{} of size {}x{} w/ scale={}", position.x, position.y, width, height, scale);
-            s.world.spawn((transform, Layer6, Drawable::Texture { d: new_t, dont_center: true }));
-        }
-        s.usr.created_tile_map = true;
-    }
-    let pinkish = BLACK;
-    let orangish = WHITE;
-    color_tiles(s, next_a, orangish);
-    color_tiles(s, next_b, pinkish);
 }
 
 fn color_tiles(
