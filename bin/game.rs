@@ -25,7 +25,9 @@ pub struct MyState {
     pub rng: fastrand::Rng,
     pub filled: FilledMap,
     pub recursive_tiling: RecursiveTiling,
+    pub voronoi_tiling: VoronoiTiling,
     pub created_tile_map: bool,
+    pub voronoi_colors: Vec<Color>,
 }
 
 impl Default for MyState {
@@ -37,6 +39,8 @@ impl Default for MyState {
             filled: Default::default(),
             recursive_tiling: Default::default(),
             created_tile_map: Default::default(),
+            voronoi_tiling: Default::default(),
+            voronoi_colors: Default::default(),
         }
     }
 }
@@ -44,8 +48,9 @@ impl Default for MyState {
 impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
         s.usr.rand_map = RandomMapGen::new(1000, 40000, s.usr.rng.u64(0..u64::MAX));
-        s.usr.recursive_tiling.size = s.usr.rand_map.square_size as i32;
-        s.usr.recursive_tiling.desired_tile_size = 170;
+        // s.usr.recursive_tiling.size = s.usr.rand_map.square_size as i32;
+        // s.usr.recursive_tiling.desired_tile_size = 170;
+        s.usr.voronoi_tiling.desired_points = 460;
 
         let transform = Transform::from_scale_angle_position(1.0, 0.0, (0.0, 0.0));
         let draw = Drawable::texture(s, Textures::test);
@@ -73,13 +78,35 @@ fn get_all_systems() -> &'static [MySystem] {
         sys!(handle_pan),
         sys!(control_character),
         sys!(update_children_transforms),
-        sys!(generate_tiles),
+        // sys!(generate_tiles_recursive),
+        sys!(generate_tiles_voronoi),
         sys!(fill_generated_map),
         sys!(draw),
     ]
 }
 
-fn generate_tiles(s: &mut GameState, _dt: f32) {
+fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
+    let tiling = &mut s.usr.voronoi_tiling;
+    if !tiling.ready_to_tile {
+        return;
+    }
+    if s.usr.voronoi_colors.is_empty() {
+        for _ in 0..tiling.desired_points {
+            let rand_h = s.usr.rng.f32();
+            let color = macroquad::color::hsl_to_rgb(rand_h, 1.0, 0.5);
+            s.usr.voronoi_colors.push(color);
+        }
+    }
+
+
+    let mut growths = tiling.next_n(&mut s.usr.rng, 1);
+    for (i, growth) in growths.drain(..).enumerate() {
+        let color = s.usr.voronoi_colors[i];
+        color_tiles(s, growth, color);
+    }
+}
+
+fn generate_tiles_recursive(s: &mut GameState, _dt: f32) {
     let tiling = &mut s.usr.recursive_tiling;
     if tiling.should_reset() {
         let mut cb = CommandBuffer::new();
@@ -225,7 +252,8 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         for (entity, _) in s.world.query_mut::<&BuildingMapTile>() {
             cb.despawn(entity);
         }
-        s.usr.recursive_tiling.ready_to_tile = true;
+        s.usr.voronoi_tiling.ready_to_tile = true;
+        // s.usr.recursive_tiling.ready_to_tile = true;
         cb.run_on(&mut s.world);
     }
     for (x, y, height) in next {
@@ -250,7 +278,10 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         let color = if height < water_level {
             BLUE
         } else {
-            s.usr.recursive_tiling.open_set.insert(original_xy);
+            s.usr.voronoi_tiling.open_set.insert(original_xy);
+            s.usr.voronoi_tiling.open_set_list.push(original_xy);
+            // s.usr.voronoi_tiling.open_set_list.sort();
+            // s.usr.recursive_tiling.open_set.insert(original_xy);
             GREEN
         };
         row.push(color);

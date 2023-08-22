@@ -385,3 +385,104 @@ impl RecursiveTiling {
         (should_reset, a_new, b_new)
     }
 }
+
+#[derive(Default)]
+pub struct VoronoiTiling {
+    pub desired_points: usize,
+    pub open_set: HashSet<(i32, i32)>,
+    pub open_set_list: Vec<(i32, i32)>,
+    pub growth_starts: Vec<(i32, i32)>,
+    pub growth_frontiers: Vec<Vec<(i32, i32)>>,
+    pub growth_frontier_sets: Vec<HashSet<(i32, i32)>>,
+    pub growth_sets: Vec<HashSet<(i32, i32)>>,
+    pub ready_to_tile: bool,
+    pub current_radius: f32,
+    pub done: bool,
+}
+impl VoronoiTiling {
+    /// calls next N times. returns a vec that contains the output of all N calls.
+    pub fn next_n(&mut self, rng: &mut fastrand::Rng, n: usize) -> Vec<Vec<(i32, i32)>> {
+        let mut next_data = vec![];
+        for _ in 0..n {
+            let data = self.next(rng);
+            next_data.extend(data);
+        }
+        next_data
+    }
+    pub fn get_surrounding(i: (i32, i32)) -> [(i32, i32); 8] {
+        let (x, y) = i;
+        [
+            (x - 1, y - 1), (x, y - 1), (x + 1, y - 1),
+            (x - 1, y),                 (x + 1, y    ),
+            (x - 1, y + 1), (x, y + 1), (x + 1, y + 1),
+        ]
+    }
+    /// returns 2 vectors and a bool: whether or not to reset the animation,
+    /// new tiles inserted into the current a set, and the b set.
+    pub fn next(&mut self, rng: &mut fastrand::Rng) -> Vec<Vec<(i32, i32)>> {
+        let mut out = vec![];
+        // first iteration: calculate all the random points
+        if self.growth_starts.is_empty() {
+            // invalid state: cant start the algorithm if theres not enough data
+            if self.open_set_list.len() < self.desired_points { return out; }
+            let mut random_pts = Vec::with_capacity(self.desired_points);
+            for _ in 0..self.desired_points {
+                let random_i = rng.usize(0..self.open_set_list.len());
+                let pt = self.open_set_list.swap_remove(random_i);
+                self.open_set.remove(&pt);
+                random_pts.push(pt);
+                out.push(vec![pt]);
+                let mut set = HashSet::new();
+                set.insert(pt);
+                self.growth_frontiers.push(vec![pt]);
+                let mut frontier_set = HashSet::new();
+                frontier_set.insert(pt);
+                self.growth_frontier_sets.push(frontier_set);
+                self.growth_sets.push(set);
+            }
+            self.current_radius = 1.0;
+            self.growth_starts = random_pts;
+            return out;
+        }
+
+        for (i, growth_start) in self.growth_starts.iter().enumerate() {
+            let mut claimed_for_i = vec![];
+            let growth_start = Vec2::new(growth_start.0 as f32, growth_start.1 as f32);
+            // get the frontier for this growth
+            // let frontier = &mut self.growth_frontiers[i];
+            let mut new_frontier_set = HashSet::new();
+            let frontier_set = &self.growth_frontier_sets[i];
+            let claimed_set = &mut self.growth_sets[i];
+            let frontier = std::mem::take(&mut self.growth_frontiers[i]);
+            let new_frontier = &mut self.growth_frontiers[i];
+            for f_pt in frontier {
+                // get all neighbors of this point.
+                for neighbor_pt in Self::get_surrounding(f_pt) {
+                    // exclude ones that are already in our frontier
+                    // exclude ones that are already in our set.
+                    if frontier_set.contains(&neighbor_pt) { continue; }
+                    if claimed_set.contains(&neighbor_pt) { continue; }
+                    // check if they are within the current radius.
+                    let pt = Vec2::new(neighbor_pt.0 as f32, neighbor_pt.1 as f32);
+                    let dist = pt.distance(growth_start);
+                    if dist > self.current_radius { continue; }
+                    // check they are still in the open set
+                    // and assign to this growth.
+                    if !self.open_set.contains(&neighbor_pt) { continue; }
+                    self.open_set.remove(&neighbor_pt);
+                    claimed_set.insert(neighbor_pt);
+                    new_frontier.push(neighbor_pt);
+                    new_frontier_set.insert(neighbor_pt);
+                    claimed_for_i.push(neighbor_pt);
+                }
+            }
+            out.push(claimed_for_i);
+            self.growth_frontier_sets[i] = new_frontier_set;
+        }
+        self.current_radius += 1.0;
+        if self.open_set.is_empty() {
+            self.done = true;
+        }
+        out
+    }
+}
