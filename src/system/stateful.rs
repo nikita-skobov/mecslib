@@ -445,6 +445,7 @@ impl VoronoiTiling {
             return out;
         }
 
+        let mut all_frontier_sets_empty = true;
         for (i, growth_start) in self.growth_starts.iter().enumerate() {
             let mut claimed_for_i = vec![];
             let growth_start = Vec2::new(growth_start.0 as f32, growth_start.1 as f32);
@@ -477,10 +478,13 @@ impl VoronoiTiling {
                 }
             }
             out.push(claimed_for_i);
+            if !new_frontier_set.is_empty() {
+                all_frontier_sets_empty = false;
+            }
             self.growth_frontier_sets[i] = new_frontier_set;
         }
         self.current_radius += 1.0;
-        if self.open_set.is_empty() {
+        if all_frontier_sets_empty {
             self.done = true;
         }
         out
