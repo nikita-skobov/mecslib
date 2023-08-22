@@ -431,8 +431,14 @@ impl VoronoiTiling {
     pub fn next_n(&mut self, rng: &mut fastrand::Rng, n: usize) -> Vec<Vec<(i32, i32)>> {
         let mut next_data = vec![];
         for _ in 0..n {
-            let data = self.next(rng);
-            next_data.extend(data);
+            let mut data = self.next(rng);
+            if next_data.is_empty() {
+                next_data.extend(data);
+            } else {
+                for (i, d) in data.drain(..).enumerate() {
+                    next_data[i].extend(d);
+                }
+            }
         }
         next_data
     }
