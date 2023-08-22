@@ -399,8 +399,16 @@ pub struct VoronoiTiling {
     pub ready_to_tile: bool,
     pub current_radius: f32,
     pub done: bool,
+    pub grid_points: Option<(usize, i32, f32)>,
 }
 impl VoronoiTiling {
+    /// instead of using random points from the open set,
+    /// creates a grid of points of specified density (how far apart each point should be)
+    /// random_intensity controls how much of an offset each grid point can have.
+    /// eg: 0.0 => no offset, 10.0 => implies each point is shifted 10.0 points in a random direction
+    pub fn with_grid_points(&mut self, grid_size: usize, density: i32, random_intensity: f32) {
+        self.grid_points = Some((grid_size, density, random_intensity));
+    }
     /// resets all fields except the open set.
     /// re-calculates desired_points to be scaled down
     /// depending on how much is remaining.
@@ -417,6 +425,7 @@ impl VoronoiTiling {
         self.growth_sets.clear();
         self.growth_starts.clear();
         self.open_set_list.clear();
+        self.grid_points = None;
         for pt in self.open_set.iter() {
             self.open_set_list.push(*pt);
         }
@@ -450,15 +459,75 @@ impl VoronoiTiling {
             (x - 1, y + 1), (x, y + 1), (x + 1, y + 1),
         ]
     }
+    /// returns true if successfully initialized with grid points
+    pub fn initialize_with_grid_points(&mut self, out: &mut Vec<Vec<(i32, i32)>>, rng: &mut fastrand::Rng) -> bool {
+        let (grid_size, density, rng_intensity) = if let Some(x) = self.grid_points {
+            x
+        } else { return false };
+
+        // create a grid of points within the open set.
+        let mut grid = HashSet::new();
+        let mut y = 0;
+        let grid_size_i32 = grid_size as i32;
+        while y < grid_size_i32 {
+            let mut x = 0;
+            while x < grid_size_i32 {
+                if self.open_set.contains(&(x, y)) {
+                    grid.insert((x, y));
+                }
+                x += density;
+            }
+            y += density;
+        }
+        // if theres rng intensity, apply it to each point:
+        if rng_intensity > 0.0 {
+            let mut new_grid = HashSet::new();
+            let mut grid_vec: Vec<_> = grid.drain().collect();
+            grid_vec.sort();
+            for pt in grid_vec {
+                let pt = Vec2::new(pt.0 as f32, pt.1 as f32);
+                let rand = rng.f32();
+                let rand_angle = rand * std::f32::consts::PI * 2.0;
+                let rand_vec = Vec2::from_angle(rand_angle);
+                let pt = pt + (rand_vec * rng_intensity);
+                let (x, y) = (pt.x as i32, pt.y as i32);
+                if self.open_set.contains(&(x, y)) {
+                    new_grid.insert((x, y));
+                }
+            }
+            grid = new_grid;
+        }
+
+        self.desired_points = grid.len();
+        let mut random_pts = Vec::with_capacity(self.desired_points);
+        for pt in grid {
+            self.open_set.remove(&pt);
+            random_pts.push(pt);
+            out.push(vec![pt]);
+            let mut set = HashSet::new();
+            set.insert(pt);
+            self.growth_frontiers.push(vec![pt]);
+            let mut frontier_set = HashSet::new();
+            frontier_set.insert(pt);
+            self.growth_frontier_sets.push(frontier_set);
+            self.growth_sets.push(set);
+        }
+        self.current_radius = 1.0;
+        self.growth_starts = random_pts;
+        true
+    }
     /// returns 2 vectors and a bool: whether or not to reset the animation,
     /// new tiles inserted into the current a set, and the b set.
     pub fn next(&mut self, rng: &mut fastrand::Rng) -> Vec<Vec<(i32, i32)>> {
         let mut out = vec![];
         // first iteration: calculate all the random points
         if self.growth_starts.is_empty() {
+            self.original_open_set_size = self.open_set.len();
+            if self.initialize_with_grid_points(&mut out, rng) {
+                return out;
+            }
             // invalid state: cant start the algorithm if theres not enough data
             if self.open_set_list.len() < self.desired_points { return out; }
-            self.original_open_set_size = self.open_set.len();
             let mut random_pts = Vec::with_capacity(self.desired_points);
             for _ in 0..self.desired_points {
                 let random_i = rng.usize(0..self.open_set_list.len());

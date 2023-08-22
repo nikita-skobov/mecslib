@@ -47,8 +47,12 @@ impl Default for MyState {
 
 impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
-        s.usr.rand_map = RandomMapGen::new(1000, 40000, s.usr.rng.u64(0..u64::MAX));
-        s.usr.voronoi_tiling.desired_points = 170;
+        let grid_size = 1000;
+        s.usr.rand_map = RandomMapGen::new(grid_size, 40000, s.usr.rng.u64(0..u64::MAX));
+        s.usr.voronoi_tiling.desired_points = 210;
+        let density = grid_size as f32 * 0.038;
+        let intensity = density / 2.0;
+        s.usr.voronoi_tiling.with_grid_points(grid_size, density as _, intensity);
 
         let transform = Transform::from_scale_angle_position(1.0, 0.0, (0.0, 0.0));
         let draw = Drawable::texture(s, Textures::test);
@@ -87,6 +91,7 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
     if !tiling.ready_to_tile || tiling.done {
         return;
     }
+    let mut growths = tiling.next_n(&mut s.usr.rng, 1);
     if s.usr.voronoi_colors.is_empty() {
         for _ in 0..tiling.desired_points {
             let rand_h = s.usr.rng.f32();
@@ -94,9 +99,6 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
             s.usr.voronoi_colors.push(color);
         }
     }
-
-
-    let mut growths = tiling.next_n(&mut s.usr.rng, 1);
     for (i, growth) in growths.drain(..).enumerate() {
         let color = s.usr.voronoi_colors[i];
         color_tiles(s, growth, color);
