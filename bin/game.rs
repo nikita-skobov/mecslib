@@ -167,7 +167,7 @@ fn generate_texture_from_tileset(
     let scaled_origin = original_origin * tile_size;
     let scaled_corner = original_corner * tile_size;
     let scaled_dist = scaled_corner.distance(scaled_origin);
-    macroquad::logging::warn!("Scaled dist {}, original dist {}. tile size {}", scaled_dist, original_dist, tile_size);
+    // macroquad::logging::warn!("Scaled dist {}, original dist {}. tile size {}", scaled_dist, original_dist, tile_size);
     let scale = scaled_dist / original_dist;
     let rand_h = rng.f32();
     let rand_color = macroquad::color::hsl_to_rgb(rand_h, 1.0, 0.5);
