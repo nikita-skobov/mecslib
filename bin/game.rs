@@ -45,7 +45,7 @@ impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
         s.usr.rand_map = RandomMapGen::new(1000, 40000, s.usr.rng.u64(0..u64::MAX));
         s.usr.recursive_tiling.size = s.usr.rand_map.square_size as i32;
-        s.usr.recursive_tiling.desired_tile_size = 1000;
+        s.usr.recursive_tiling.desired_tile_size = 170;
 
         let transform = Transform::from_scale_angle_position(1.0, 0.0, (0.0, 0.0));
         let draw = Drawable::texture(s, Textures::test);

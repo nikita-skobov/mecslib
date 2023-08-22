@@ -45,7 +45,7 @@ impl Default for CoordTransform {
 }
 
 impl CoordTransform {
-    pub const MAX_SCALE: f32 = 6.0;
+    pub const MAX_SCALE: f32 = 10.0;
     pub const MIN_SCALE: f32 = 0.1;
     pub const SCALE_BY: f32 = 0.05;
 
@@ -260,19 +260,23 @@ impl RecursiveTiling {
         current_set: &mut HashSet<(i32, i32)>,
         current_other_set: &mut HashSet<(i32, i32)>,
         pushed: &mut Vec<(i32, i32)>,
+        _rng: &mut fastrand::Rng,
     ) {
+        // random doesnt work?
+        // let max = 2.min(frontier.len());
+        // let random = rng.usize(0..=max);
         // get and remove a random point from the current A frontier
-        let next_a = match frontier.get(0) {
+        let random = 0;
+        // drain frontier and handle everything currently in it
+        let next_a = match frontier.get(random) {
             Some(a) => *a,
             None => return,
         };
-        // add it to A, and remove it from the frontier so we dont visit again
         frontier.remove(0);
         frontier_set.remove(&next_a);
-        pushed.push(next_a);
-        open_set.remove(&next_a);
-        current_set.insert(next_a);
-        // add all valid neighbors to the frontier
+        // next_a is already in current_set.
+        // visit its surrounding neighbors, add them to the frontier, and
+        // add them to A
         for pt in Self::get_surrounding(next_a, false) {
             // dont check point again if its already in our set
             if current_set.contains(&pt) { continue; }
@@ -284,6 +288,10 @@ impl RecursiveTiling {
                 frontier.push(pt);
                 frontier_set.insert(pt);
             }
+            // associate it with our current set
+            current_set.insert(pt);
+            open_set.remove(&pt);
+            pushed.push(pt);
         }
     }
     pub fn get_next_set_to_divide(&mut self) -> Option<HashSet<(i32, i32)>> {
@@ -317,6 +325,10 @@ impl RecursiveTiling {
                     self.current_b_frontier.push(random_pts[1]);
                     self.current_a_frontier_set.insert(random_pts[0]);
                     self.current_b_frontier_set.insert(random_pts[1]);
+                    self.open_set.remove(&random_pts[0]);
+                    self.open_set.remove(&random_pts[1]);
+                    a_new.push(random_pts[0]);
+                    b_new.push(random_pts[1]);
                 }
                 for a in a_new.iter() {
                     self.current_a_set.insert(*a);
@@ -349,7 +361,8 @@ impl RecursiveTiling {
             &mut self.open_set,
             &mut self.current_a_set,
             &mut self.current_b_set,
-            &mut a_new
+            &mut a_new,
+            rng,
         );
         Self::check_frontier(
             &mut self.current_b_frontier,
@@ -357,7 +370,8 @@ impl RecursiveTiling {
             &mut self.open_set,
             &mut self.current_b_set,
             &mut self.current_a_set,
-            &mut b_new
+            &mut b_new,
+            rng,
         );
         // we filled these 2 sets as much as we could.
         // add them to our set history, and reset state.
