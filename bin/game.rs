@@ -48,9 +48,7 @@ impl Default for MyState {
 impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
         s.usr.rand_map = RandomMapGen::new(1000, 40000, s.usr.rng.u64(0..u64::MAX));
-        // s.usr.recursive_tiling.size = s.usr.rand_map.square_size as i32;
-        // s.usr.recursive_tiling.desired_tile_size = 170;
-        s.usr.voronoi_tiling.desired_points = 46;
+        s.usr.voronoi_tiling.desired_points = 170;
 
         let transform = Transform::from_scale_angle_position(1.0, 0.0, (0.0, 0.0));
         let draw = Drawable::texture(s, Textures::test);
@@ -119,8 +117,9 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
         let center = Vec2::new(final_size / 2.0, final_size / 2.0);
         let screen_center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
         let delta = screen_center - center;
-        for set in tiling.growth_sets.drain(..) {
-            let (transform, drawable) = generate_texture_from_tileset(set, tile_size, delta, &mut s.usr.rng);
+        for (i, set) in tiling.growth_sets.drain(..).enumerate() {
+            let color = s.usr.voronoi_colors[i];
+            let (transform, drawable) = generate_texture_from_tileset(set, tile_size, delta, color);
             s.world.spawn((transform, Layer6, drawable));
         }
 
@@ -138,7 +137,7 @@ fn generate_texture_from_tileset(
     set: HashSet<(i32, i32)>,
     tile_size: f32,
     delta: Vec2,
-    rng: &mut fastrand::Rng,
+    color: Color,
 ) -> (Transform, Drawable) {
     let mut min_x = i32::MAX;
     let mut max_x = i32::MIN;
@@ -169,13 +168,11 @@ fn generate_texture_from_tileset(
     let scaled_dist = scaled_corner.distance(scaled_origin);
     // macroquad::logging::warn!("Scaled dist {}, original dist {}. tile size {}", scaled_dist, original_dist, tile_size);
     let scale = scaled_dist / original_dist;
-    let rand_h = rng.f32();
-    let rand_color = macroquad::color::hsl_to_rgb(rand_h, 1.0, 0.5);
     let mut bytes = vec![];
     for y in min_y..=max_y {
         for x in min_x..=max_x {
             let color = match set.get(&(x, y)) {
-                Some(_) => rand_color,
+                Some(_) => color,
                 None => {
                     BLANK
                 },
