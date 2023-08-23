@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 use hecs::*;
 use macroquad::prelude::*;
@@ -29,6 +29,7 @@ pub struct MyState {
     pub voronoi_tiling: VoronoiTiling,
     pub created_tile_map: bool,
     pub voronoi_colors: Vec<Color>,
+    pub tile_positions: HashMap<(i32, i32), Entity>,
 }
 
 impl Default for MyState {
@@ -41,6 +42,7 @@ impl Default for MyState {
             created_tile_map: Default::default(),
             voronoi_tiling: Default::default(),
             voronoi_colors: Default::default(),
+            tile_positions: Default::default(),
         }
     }
 }
@@ -74,6 +76,7 @@ pub type GameState = State<MyState, Textures>;
 
 create_texture_enum!(Textures; other, test, empty);
 
+pub struct IsTile;
 
 fn get_all_systems() -> &'static [MySystem] {
     &[
@@ -81,9 +84,29 @@ fn get_all_systems() -> &'static [MySystem] {
         sys!(control_character),
         sys!(update_children_transforms),
         sys!(generate_tiles_voronoi),
+        sys!(draw_hovered_tiles),
         sys!(fill_generated_map),
         sys!(draw),
     ]
+}
+
+fn draw_hovered_tiles(s: &mut GameState, _dt: f32) {
+    // for each invocation make sure we hide tiles that are not hovered:
+    let mut cb = CommandBuffer::new();
+    for (entity, _) in s.world.query_mut::<&IsTile>() {
+        cb.insert_one(entity, Hidden);
+    }
+    cb.run_on(&mut s.world);
+
+    // then unhide the tiles we hover:
+    let (mx, my) = mouse_position();
+    let (wx, wy) = s.coords.to_world(mx, my);
+    let i32_coord = (wx as i32, wy as i32);
+    let entity = match s.usr.tile_positions.get(&i32_coord) {
+        Some(entity) => *entity,
+        None => return,
+    };
+    let _ = s.world.remove_one::<Hidden>(entity);
 }
 
 fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
@@ -119,10 +142,11 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
         let center = Vec2::new(final_size / 2.0, final_size / 2.0);
         let screen_center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
         let delta = screen_center - center;
-        for (i, set) in tiling.growth_sets.drain(..).enumerate() {
+        for (_i, set) in tiling.growth_sets.drain(..).enumerate() {
             // let color = s.usr.voronoi_colors[i];
-            let (transform, drawable_solid, drawable_outline) = generate_texture_from_tileset(set, tile_size, delta);
-            s.world.spawn((transform, Layer6, drawable_outline));
+            let (transform, _drawable_solid, drawable_outline) = generate_texture_from_tileset(&set, tile_size, delta);
+            let entity = s.world.spawn((transform, Layer6, drawable_outline, Hidden, IsTile));
+            fill_tile_position_map(entity, &mut s.usr.tile_positions, &set, tile_size, delta);
         }
 
         if !tiling.open_set.is_empty() {
@@ -186,10 +210,28 @@ fn generate_texture_bytes_solid(
     bytes
 }
 
+/// given a tile set of indices, calceulate their
+/// real world position, and fill a map that maps those indices
+/// to the entity
+fn fill_tile_position_map(
+    entity: Entity,
+    map: &mut HashMap<(i32, i32), Entity>,
+    set: &HashSet<(i32, i32)>,
+    tile_size: f32,
+    delta: Vec2,
+) {
+    for (x, y) in set.iter() {
+        let start_pt = Vec2::new(*x as f32, *y as f32);
+        let pt = start_pt * tile_size;
+        let position = pt + delta;
+        map.insert((position.x as i32, position.y as i32), entity);
+    }
+}
+
 /// returns the transform of where the texture should be positioned
 /// and 2 drawable textures: (solid, outline)
 fn generate_texture_from_tileset(
-    set: HashSet<(i32, i32)>,
+    set: &HashSet<(i32, i32)>,
     tile_size: f32,
     delta: Vec2,
 ) -> (Transform, Drawable, Drawable) {
