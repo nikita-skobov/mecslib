@@ -77,6 +77,8 @@ pub type GameState = State<MyState, Textures>;
 create_texture_enum!(Textures; other, test, empty);
 
 pub struct IsTile;
+const NON_HOVERED_TILE_COLOR: Color = Color::new(0.7, 0.7, 0.7, 1.0);
+const HOVERED_TILE_COLOR: Color = WHITE;
 
 fn get_all_systems() -> &'static [MySystem] {
     &[
@@ -94,7 +96,7 @@ fn draw_hovered_tiles(s: &mut GameState, _dt: f32) {
     // for each invocation make sure we hide tiles that are not hovered:
     let mut cb = CommandBuffer::new();
     for (entity, _) in s.world.query_mut::<&IsTile>() {
-        cb.insert_one(entity, Hidden);
+        cb.insert_one(entity, Tint { d: NON_HOVERED_TILE_COLOR });
     }
     cb.run_on(&mut s.world);
 
@@ -106,7 +108,7 @@ fn draw_hovered_tiles(s: &mut GameState, _dt: f32) {
         Some(entity) => *entity,
         None => return,
     };
-    let _ = s.world.remove_one::<Hidden>(entity);
+    let _ = s.world.insert_one(entity, Tint { d: HOVERED_TILE_COLOR });
 }
 
 fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
@@ -145,7 +147,7 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
         for (_i, set) in tiling.growth_sets.drain(..).enumerate() {
             // let color = s.usr.voronoi_colors[i];
             let (transform, _drawable_solid, drawable_outline) = generate_texture_from_tileset(&set, tile_size, delta);
-            let entity = s.world.spawn((transform, Layer6, drawable_outline, Hidden, IsTile));
+            let entity = s.world.spawn((transform, Layer6, drawable_outline, IsTile, Tint { d: NON_HOVERED_TILE_COLOR }));
             fill_tile_position_map(entity, &mut s.usr.tile_positions, &set, tile_size, delta);
         }
 
