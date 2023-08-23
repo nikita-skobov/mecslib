@@ -10,6 +10,7 @@ macroquad = "0.3"
 hecs = { version = "0.10.3", features = ["macros"] }
 fastrand = { version = "2.0.0", default-features = false }
 bracket-noise = "0.8.7"
+pathfinding = "4.3.1"
 
 [profile.dev.package.'*']
 opt-level = 3

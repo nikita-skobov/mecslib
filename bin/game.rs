@@ -77,6 +77,7 @@ pub type GameState = State<MyState, Textures>;
 create_texture_enum!(Textures; other, test, empty);
 
 pub struct IsTile;
+const WATER_COLOR: Color = BLUE;
 const NON_HOVERED_TILE_COLOR: Color = Color::new(0.7, 0.7, 0.7, 1.0);
 const HOVERED_TILE_COLOR: Color = WHITE;
 
@@ -90,6 +91,76 @@ fn get_all_systems() -> &'static [MySystem] {
         sys!(fill_generated_map),
         sys!(draw),
     ]
+}
+
+pub fn create_rivers(s: &mut GameState) {
+    const MAX_COST: i32 = 4;
+    // generate a random number of rivers:
+    let rand_num = 5; // TODO: generate
+    let mut obstacles = HashSet::new();
+    let grid_size = s.usr.rand_map.square_size as f32;
+
+    // generate a random cost field so that
+    // the river naturally curves around invisible "obstacles"
+    let mut cost_map = HashMap::new();
+    for y in 0..s.usr.rand_map.square_size {
+        for x in 0..s.usr.rand_map.square_size {
+            let rand_cost = s.usr.rng.i32(1..MAX_COST);
+            cost_map.insert((x as i32, y as i32), rand_cost);
+        }
+    } 
+
+    for _ in 0..rand_num {
+        // generate a random point inside the voronoi set of land tiles:
+        let rand_u = s.usr.rng.usize(0..s.usr.voronoi_tiling.open_set_list.len());
+        let start = s.usr.voronoi_tiling.open_set_list[rand_u];
+        let start_vec = Vec2::new(start.0 as f32, start.1 as f32);
+        // pick the furthest possible corner to try to expand to.
+        let goal_opt1 = Vec2::new(0.0, 0.0);
+        let goal_opt2 = Vec2::new(grid_size, 0.0);
+        let goal_opt3 = Vec2::new(grid_size, grid_size);
+        let goal_opt4 = Vec2::new(0.0, grid_size);
+        let mut max_goal_dist = f32::MIN;
+        let mut max_goal_pt = (0, 0);
+        for goal_opt in [goal_opt1, goal_opt2, goal_opt3, goal_opt4] {
+            let dist = goal_opt.distance(start_vec);
+            if dist > max_goal_dist {
+                max_goal_dist = dist;
+                max_goal_pt = (goal_opt.x as i32, goal_opt.y as i32);
+            }
+        }
+        let goal = max_goal_pt;
+        let mut astar = Astar::new(start, goal);
+        astar.path_mode = AstarPathMode::LateralOnly;
+        astar.set_impassable(obstacles.clone());
+        astar.set_costs(cost_map.clone());
+        let path = if let Some(p) = astar.calculate_path() {
+            p
+        } else { continue; };
+        // color every tile along the path blue for water.
+        // TODO: give rivers thickness so its not just this 1 tile?
+        for (x, y) in path.iter() {
+            let remove_pt = (*x, *y);
+            let x = *x as usize;
+            let y = *y as usize;
+            // lookup the grid tile at these indices
+            let row = if let Some(r) = s.usr.filled.data.get_mut(y) {
+                r
+            } else { continue };
+            let value = if let Some(v) = row.get_mut(x) {
+                v
+            } else { continue };
+            s.usr.voronoi_tiling.open_set.remove(&remove_pt);
+            // add the river as an obstacle so future rivers dont try to cross it.
+            // but do not add it as an obstacle if its already in the water (eg: ocean)
+            // otherwise future rivers will never be able to reach the goal.
+            if *value != WATER_COLOR {
+                obstacles.insert(remove_pt);
+            }
+            // TODO: need to remove it from the open_set_list as well.
+            *value = WATER_COLOR;
+        }
+    }
 }
 
 fn draw_hovered_tiles(s: &mut GameState, _dt: f32) {
@@ -323,6 +394,9 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
     let delta = screen_center - center;
     let water_level = 0.20;
     if next.is_empty() && !s.usr.filled.data.is_empty() {
+        // make rivers. set usr filled data to be water colored for every
+        // tile a river lands on.
+        create_rivers(s);
         let mut data = std::mem::take(&mut s.usr.filled.data);
         let size = s.usr.rand_map.square_size as u16;
         let mut bytes = vec![];
@@ -366,7 +440,7 @@ fn fill_generated_map(s: &mut GameState, _dt: f32) {
         let pt = Vec2::new(x, y);
         let transform = Transform::from_scale_angle_position(scale, 0.0, pt + delta);
         let color = if height < water_level {
-            BLUE
+            WATER_COLOR
         } else {
             s.usr.voronoi_tiling.open_set.insert(original_xy);
             s.usr.voronoi_tiling.open_set_list.push(original_xy);

@@ -2,7 +2,7 @@
 //! in the UserState or GameState struct. These systems are useful to represent
 //! singletons within the game world, such as but not limited to: maps, player characters, coordinate transforms, etc.
 
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 use bracket_noise::prelude::*;
 use macroquad::prelude::*;
@@ -593,5 +593,89 @@ impl VoronoiTiling {
             self.done = true;
         }
         out
+    }
+}
+
+#[derive(Clone, Copy)]
+pub enum AstarPathMode {
+    /// this means the path search can go on diagonals
+    Any,
+    /// this means the path search can only go left/right, up/down.
+    LateralOnly,
+}
+
+pub struct Astar {
+    pub path_mode: AstarPathMode,
+    pub impassable_obstacles: HashSet<(i32, i32)>,
+    pub cost_obstacles: HashMap<(i32, i32), i32>,
+    pub start: (i32, i32),
+    pub goal: (i32, i32),
+}
+impl Default for Astar {
+    fn default() -> Self {
+        Self {
+            path_mode: AstarPathMode::Any,
+            impassable_obstacles: Default::default(),
+            cost_obstacles: Default::default(),
+            start: Default::default(),
+            goal: Default::default()
+        }
+    }
+}
+impl Astar {
+    pub fn new(
+        start: (i32, i32),
+        goal: (i32, i32),
+    ) -> Self {
+        let mut astar = Astar::default();
+        astar.start = start;
+        astar.goal = goal;
+
+        astar
+    }
+    pub fn set_impassable(&mut self, impassable: HashSet<(i32, i32)>) {
+        self.impassable_obstacles = impassable;
+    }
+    pub fn set_costs(&mut self, costs: HashMap<(i32, i32), i32>) {
+        self.cost_obstacles = costs;
+    }
+    pub fn calculate_path(&self) -> Option<Vec<(i32, i32)>> {
+        let pathmode = self.path_mode;
+        let (path, _cost) = pathfinding::prelude::astar(
+            &self.start,
+            |p| {
+                let surrounding_tiles = match pathmode {
+                    AstarPathMode::Any => {
+                        vec![
+                            (p.0-1,p.1-1),(p.0,p.1-1),(p.0+1,p.1-1),
+                            (p.0-1,p.1  ),            (p.0+1,p.1  ),
+                            (p.0-1,p.1+1),(p.0,p.1+1),(p.0+1,p.1+1)
+                        ]
+                    },
+                    AstarPathMode::LateralOnly => {
+                        vec![
+                                          (p.0,p.1-1),
+                            (p.0-1,p.1  ),            (p.0+1,p.1  )
+                                         ,(p.0,p.1+1),
+                        ]
+                    },
+                }.into_iter();
+                return surrounding_tiles.filter(|x| {
+                    match self.impassable_obstacles.get(&x) {
+                        Some(_) => false,
+                        None => true,
+                    }
+                }).map(|x| {
+                    let cost = match self.cost_obstacles.get(&x) {
+                        Some(c) => *c,
+                        None => 1,
+                    };
+                    (x, cost)
+                }).collect::<Vec<_>>();
+            },
+            |&(x, y)| ((self.goal.0.abs_diff(x) + self.goal.1.abs_diff(y)) / 3) as i32,
+            |p| *p == self.goal,
+        )?;
+        Some(path)
     }
 }
