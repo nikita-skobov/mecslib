@@ -120,9 +120,9 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
         let screen_center = Vec2::new(screen_width() / 2.0, screen_height() / 2.0);
         let delta = screen_center - center;
         for (i, set) in tiling.growth_sets.drain(..).enumerate() {
-            let color = s.usr.voronoi_colors[i];
-            let (transform, drawable) = generate_texture_from_tileset(set, tile_size, delta, color);
-            s.world.spawn((transform, Layer6, drawable));
+            // let color = s.usr.voronoi_colors[i];
+            let (transform, drawable_solid, drawable_outline) = generate_texture_from_tileset(set, tile_size, delta);
+            s.world.spawn((transform, Layer6, drawable_outline));
         }
 
         if !tiling.open_set.is_empty() {
@@ -135,12 +135,64 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
     }
 }
 
+fn generate_texture_bytes_outline(
+    set: &HashSet<(i32, i32)>,
+    min_x: i32, max_x: i32,
+    min_y: i32, max_y: i32,
+) -> Vec<u8> {
+    let mut bytes = vec![];
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let color = match set.get(&(x, y)) {
+                Some(_) => {
+                    // check all neighbors: if at least 1 neighbor is empty,
+                    // that means we are on the border. so color this in.
+                    let mut is_border = false;
+                    for (x, y) in VoronoiTiling::get_surrounding((x, y)) {
+                        if !set.contains(&(x, y)) {
+                            is_border = true;
+                            break;
+                        }
+                    }
+                    if is_border { WHITE } else { BLANK }
+                }
+                None => {
+                    BLANK
+                },
+            };
+            let color_arr: [u8; 4] = color.into();
+            bytes.extend(color_arr);
+        }
+    }
+    bytes
+}
+
+fn generate_texture_bytes_solid(
+    set: &HashSet<(i32, i32)>,
+    min_x: i32, max_x: i32,
+    min_y: i32, max_y: i32,
+) -> Vec<u8> {
+    let mut bytes = vec![];
+    for y in min_y..=max_y {
+        for x in min_x..=max_x {
+            let color = match set.get(&(x, y)) {
+                Some(_) => WHITE,
+                None => BLANK,
+            };
+            let color_arr: [u8; 4] = color.into();
+            bytes.extend(color_arr);
+        }
+    }
+    bytes
+}
+
+/// returns the transform of where the texture should be positioned
+/// and 2 drawable textures: (solid, outline)
 fn generate_texture_from_tileset(
     set: HashSet<(i32, i32)>,
     tile_size: f32,
     delta: Vec2,
-    color: Color,
-) -> (Transform, Drawable) {
+) -> (Transform, Drawable, Drawable) {
     let mut min_x = i32::MAX;
     let mut max_x = i32::MIN;
     let mut min_y = i32::MAX;
@@ -170,28 +222,21 @@ fn generate_texture_from_tileset(
     let scaled_dist = scaled_corner.distance(scaled_origin);
     // macroquad::logging::warn!("Scaled dist {}, original dist {}. tile size {}", scaled_dist, original_dist, tile_size);
     let scale = scaled_dist / original_dist;
-    let mut bytes = vec![];
-    for y in min_y..=max_y {
-        for x in min_x..=max_x {
-            let color = match set.get(&(x, y)) {
-                Some(_) => color,
-                None => {
-                    BLANK
-                },
-            };
-            let color_arr: [u8; 4] = color.into();
-            bytes.extend(color_arr);
-        }
-    }
+    let outline_bytes = generate_texture_bytes_outline(&set, min_x, max_x, min_y, max_y);
+    let solid_bytes = generate_texture_bytes_solid(&set, min_x, max_x, min_y, max_y);
     let start_pt = Vec2::new(min_x as f32, min_y as f32);
     let pt = start_pt * tile_size;
     let width = width as u16;
     let height = height as u16;
-    let new_t = Texture2D::from_rgba8(width, height, &bytes);
-    new_t.set_filter(FilterMode::Nearest);
+    let new_t_outline = Texture2D::from_rgba8(width, height, &outline_bytes);
+    new_t_outline.set_filter(FilterMode::Nearest);
+    let new_t_solid = Texture2D::from_rgba8(width, height, &solid_bytes);
+    new_t_solid.set_filter(FilterMode::Nearest);
     let position = pt + delta;
     let transform = Transform::from_scale_angle_position(scale, 0.0, position);
-    (transform, Drawable::Texture { d: new_t, dont_center: true })
+    let draw_solid = Drawable::Texture { d: new_t_solid, dont_center: true };
+    let draw_outline = Drawable::Texture { d: new_t_outline, dont_center: true };
+    (transform, draw_solid, draw_outline)
 }
 
 fn color_tiles(
