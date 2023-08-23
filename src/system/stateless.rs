@@ -158,7 +158,7 @@ pub fn draw<U: UserState<T>, T: TextureEnum>(s: &mut State<U, T>, dt: f32) {
 }
 
 pub fn draw_layer<U: UserState<T>, T: TextureEnum, Layer: Component>(s: &mut State<U, T>, _dt: f32) {
-    for (_, (transform, drawable, tint)) in s.world.query_mut::<(&Transform, &Drawable, Option<&Tint>)>().with::<&Layer>() {
+    for (_, (transform, drawable, tint)) in s.world.query_mut::<(&Transform, &Drawable, Option<&Tint>)>().with::<&Layer>().without::<&Hidden>() {
         let pt = transform.d.transform_point2(Vec2::ZERO);
         let dir_vec = transform.d.transform_vector2(Vec2::NEG_Y);
         let dir_vec_magnitude = dir_vec.length() * s.coords.scale;

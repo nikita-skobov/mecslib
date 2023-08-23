@@ -53,6 +53,9 @@ pub struct Parent {
     pub local_transform: Transform,
 }
 
+/// unit struct to hide entities from being drawn
+pub struct Hidden;
+
 /// represents anything drawable. currently just limitied to single textures
 /// but can be expanded to include shapes, animations, text, etc.
 pub enum Drawable {
