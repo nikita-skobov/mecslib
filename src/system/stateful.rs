@@ -402,6 +402,8 @@ pub struct VoronoiTiling {
     pub grid_points: Option<(usize, i32, f32)>,
 }
 impl VoronoiTiling {
+    const GROWTH_TOLERANCE: f32 = std::f32::consts::SQRT_2 - 1.0;
+
     /// instead of using random points from the open set,
     /// creates a grid of points of specified density (how far apart each point should be)
     /// random_intensity controls how much of an offset each grid point can have.
@@ -569,7 +571,7 @@ impl VoronoiTiling {
                     // check if they are within the current radius.
                     let pt = Vec2::new(neighbor_pt.0 as f32, neighbor_pt.1 as f32);
                     let dist = pt.distance(growth_start);
-                    if dist > self.current_radius { continue; }
+                    if dist > self.current_radius + Self::GROWTH_TOLERANCE { continue; }
                     // check they are still in the open set
                     // and assign to this growth.
                     if !self.open_set.contains(&neighbor_pt) { continue; }
