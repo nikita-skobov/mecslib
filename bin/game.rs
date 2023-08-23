@@ -49,9 +49,9 @@ impl Default for MyState {
 
 impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
-        let grid_size = 1000;
+        let grid_size = 1300;
         s.usr.rand_map = RandomMapGen::new(grid_size, 40000, s.usr.rng.u64(0..u64::MAX));
-        s.usr.voronoi_tiling.desired_points = 210;
+        // s.usr.voronoi_tiling.desired_points = 210;
         let density = grid_size as f32 * 0.038;
         let intensity = density / 2.0;
         s.usr.voronoi_tiling.with_grid_points(grid_size, density as _, intensity);
@@ -116,7 +116,7 @@ fn generate_tiles_voronoi(s: &mut GameState, _dt: f32) {
     if !tiling.ready_to_tile || tiling.done {
         return;
     }
-    let mut growths = tiling.next_n(&mut s.usr.rng, 1);
+    let mut growths = tiling.next_n(&mut s.usr.rng, 10);
     if s.usr.voronoi_colors.is_empty() {
         for _ in 0..tiling.desired_points {
             let rand_h = s.usr.rng.f32();
