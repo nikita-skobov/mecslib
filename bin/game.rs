@@ -49,7 +49,7 @@ impl Default for MyState {
 
 impl UserState<Textures> for MyState {
     fn initialize(s: &mut State<Self, Textures>) {
-        let grid_size = 1300;
+        let grid_size = 1000;
         s.usr.rand_map = RandomMapGen::new(grid_size, 40000, s.usr.rng.u64(0..u64::MAX));
         // s.usr.voronoi_tiling.desired_points = 210;
         let density = grid_size as f32 * 0.038;
