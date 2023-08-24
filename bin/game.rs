@@ -94,9 +94,10 @@ fn get_all_systems() -> &'static [MySystem] {
 }
 
 pub fn create_rivers(s: &mut GameState) {
-    const MAX_COST: i32 = 4;
+    const MAX_COST: i32 = 3;
+    const MAX_RIVERS: usize = 3;
     // generate a random number of rivers:
-    let rand_num = 5; // TODO: generate
+    let rand_num = s.usr.rng.usize(1..=MAX_RIVERS);
     let mut obstacles = HashSet::new();
     let grid_size = s.usr.rand_map.square_size as f32;
 
@@ -108,7 +109,7 @@ pub fn create_rivers(s: &mut GameState) {
             let rand_cost = s.usr.rng.i32(1..MAX_COST);
             cost_map.insert((x as i32, y as i32), rand_cost);
         }
-    } 
+    }
 
     for _ in 0..rand_num {
         // generate a random point inside the voronoi set of land tiles:
@@ -140,6 +141,12 @@ pub fn create_rivers(s: &mut GameState) {
         // color every tile along the path blue for water.
         let mut thick_river_set = HashSet::new();
         for (x, y) in path {
+            // if this point is in the ocean (ie: not in the voronoi open set => water)
+            // then lets stop advancing the river. we dont want it to flow
+            // through the ocean, as it risks cutting through islands in weird ways.
+            if !s.usr.voronoi_tiling.open_set.contains(&(x, y)) {
+                break;
+            }
             // add this point to the river set:
             thick_river_set.insert((x, y));
             // as well as every point around it:
@@ -148,10 +155,11 @@ pub fn create_rivers(s: &mut GameState) {
                 thick_river_set.insert((x, y));
             }
         }
-        for (x, y) in thick_river_set.iter() {
-            let remove_pt = (*x, *y);
-            let x = *x as usize;
-            let y = *y as usize;
+        let mut thick_river_vec = Vec::with_capacity(thick_river_set.len());
+        for (x, y) in thick_river_set.drain() {
+            let remove_pt = (x, y);
+            let x = x as usize;
+            let y = y as usize;
             // lookup the grid tile at these indices
             let row = if let Some(r) = s.usr.filled.data.get_mut(y) {
                 r
@@ -160,14 +168,21 @@ pub fn create_rivers(s: &mut GameState) {
                 v
             } else { continue };
             s.usr.voronoi_tiling.open_set.remove(&remove_pt);
+            thick_river_vec.push(remove_pt);
             // add the river as an obstacle so future rivers dont try to cross it.
             // but do not add it as an obstacle if its already in the water (eg: ocean)
             // otherwise future rivers will never be able to reach the goal.
             if *value != WATER_COLOR {
                 obstacles.insert(remove_pt);
             }
-            // TODO: need to remove it from the open_set_list as well.
             *value = WATER_COLOR;
+        }
+        thick_river_vec.sort();
+        // remove everything from the voronoi open_set_list
+        for pt in thick_river_vec {
+            if let Some(i) = s.usr.voronoi_tiling.open_set_list.iter().position(|x| *x == pt) {
+                s.usr.voronoi_tiling.open_set_list.swap_remove(i);
+            }
         }
     }
 }
