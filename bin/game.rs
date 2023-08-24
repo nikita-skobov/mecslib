@@ -138,8 +138,17 @@ pub fn create_rivers(s: &mut GameState) {
             p
         } else { continue; };
         // color every tile along the path blue for water.
-        // TODO: give rivers thickness so its not just this 1 tile?
-        for (x, y) in path.iter() {
+        let mut thick_river_set = HashSet::new();
+        for (x, y) in path {
+            // add this point to the river set:
+            thick_river_set.insert((x, y));
+            // as well as every point around it:
+            // this is what makes the river "thick"
+            for (x, y) in VoronoiTiling::get_surrounding((x, y)) {
+                thick_river_set.insert((x, y));
+            }
+        }
+        for (x, y) in thick_river_set.iter() {
             let remove_pt = (*x, *y);
             let x = *x as usize;
             let y = *y as usize;
