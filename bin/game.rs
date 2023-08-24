@@ -2,7 +2,7 @@ use std::collections::{HashSet, HashMap};
 
 use hecs::*;
 use macroquad::prelude::*;
-use mquad_ecs_lib::{
+use mecslib::{
     components::*,
     system::{stateless::*, stateful::*},
     data::{
