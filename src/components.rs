@@ -58,6 +58,7 @@ pub struct Hidden;
 
 /// represents anything drawable. currently just limitied to single textures
 /// but can be expanded to include shapes, animations, text, etc.
+#[derive(Clone, Copy)]
 pub enum Drawable {
     Texture { d: Texture2D, dont_center: bool },
 }
