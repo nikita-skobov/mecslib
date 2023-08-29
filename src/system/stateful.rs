@@ -438,6 +438,21 @@ impl VoronoiTiling {
         // but also less than the size of the open set list
         self.desired_points = self.desired_points.clamp(1, self.open_set.len());
     }
+    /// repeatedly calls next until the algorithm is done.
+    pub fn finish(&mut self, rng: &mut fastrand::Rng) -> Vec<Vec<(i32, i32)>> {
+        let mut next_data = vec![];
+        while !self.done {
+            let mut data = self.next(rng);
+            if next_data.is_empty() {
+                next_data.extend(data);
+            } else {
+                for (i, d) in data.drain(..).enumerate() {
+                    next_data[i].extend(d);
+                }
+            }
+        }
+        next_data
+    }
     /// calls next N times. returns a vec that contains the output of all N calls.
     pub fn next_n(&mut self, rng: &mut fastrand::Rng, n: usize) -> Vec<Vec<(i32, i32)>> {
         let mut next_data = vec![];
