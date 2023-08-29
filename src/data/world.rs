@@ -40,6 +40,17 @@ impl<U: UserState<T>, T: TextureEnum> State<U, T> {
         U::initialize(&mut s);
         s
     }
+    pub fn empty() -> Self {
+        let textures = HashMap::new();
+        let usr = U::default();
+        Self {
+            usr,
+            textures,
+            clear_color: BLACK,
+            coords: Default::default(),
+            world: Default::default(),
+        }
+    }
 }
 
 /// main game loop. runs your game according to your
