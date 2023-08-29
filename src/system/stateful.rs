@@ -502,6 +502,8 @@ impl VoronoiTiling {
 
         self.desired_points = grid.len();
         let mut random_pts = Vec::with_capacity(self.desired_points);
+        let mut grid = grid.drain().collect::<Vec<_>>();
+        grid.sort();
         for pt in grid {
             self.open_set.remove(&pt);
             random_pts.push(pt);
