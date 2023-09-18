@@ -64,7 +64,9 @@ pub enum Drawable {
 }
 impl Drawable {
     pub fn texture<U: UserState<T>, T: TextureEnum>(s: &State<U, T>, t: T) -> Self {
-        let d = s.textures[&t];
+        let d = if let Some(t) = s.textures.get(&t) {
+            *t
+        } else { Texture2D::empty() };
         Self::Texture { d, dont_center: false }
     }
 }

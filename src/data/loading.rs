@@ -18,7 +18,7 @@ use std::{collections::HashMap, hash::Hash};
 macro_rules! create_texture_enum {
     ($name:ident; $($x:ident),*) => {
         #[allow(non_camel_case_types)]
-        #[derive(PartialEq, Eq, Hash)]
+        #[derive(PartialEq, Eq, Hash, Clone, Copy)]
         pub enum $name {
             $(
                 $x,
